@@ -22,6 +22,7 @@ mod unused_variable;
 pub(crate) mod vartable;
 mod vector_to_slice;
 mod yul;
+mod mappings;
 
 use self::{
     cfg::{optimize_and_check_cfg, ControlFlowGraph, Instr},
