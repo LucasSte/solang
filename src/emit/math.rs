@@ -71,27 +71,9 @@ fn signed_ovf_detect<'b, 'a: 'b, T: TargetRuntime<'a> + ?Sized>(
     let return_val = bin.builder.build_call(
         bin.module.get_function("__mul32_with_builtin_ovf").unwrap(),
         &[
-            bin.builder
-                .build_pointer_cast(
-                    l,
-                    bin.context.i32_type().ptr_type(AddressSpace::default()),
-                    "left",
-                )
-                .into(),
-            bin.builder
-                .build_pointer_cast(
-                    r,
-                    bin.context.i32_type().ptr_type(AddressSpace::default()),
-                    "right",
-                )
-                .into(),
-            bin.builder
-                .build_pointer_cast(
-                    o,
-                    bin.context.i32_type().ptr_type(AddressSpace::default()),
-                    "output",
-                )
-                .into(),
+            l.into(),
+            r.into(),
+            o.into(),
             bin.context
                 .i32_type()
                 .const_int(mul_bits as u64 / 32, false)
@@ -100,7 +82,7 @@ fn signed_ovf_detect<'b, 'a: 'b, T: TargetRuntime<'a> + ?Sized>(
         "",
     );
 
-    let res = bin.builder.build_load(o, "mul");
+    let res = bin.builder.build_load(mul_ty, o, "mul");
     let ovf_any_type = if mul_bits != bits {
         // If there are any set bits, then there is an overflow.
         let check_ovf = bin.builder.build_right_shift(
@@ -217,31 +199,14 @@ fn call_mul32_without_ovf<'a>(
     o: PointerValue<'a>,
     mul_bits: u32,
     mul_type: IntType<'a>,
+    res_type: IntType<'a>,
 ) -> IntValue<'a> {
     bin.builder.build_call(
         bin.module.get_function("__mul32").unwrap(),
         &[
-            bin.builder
-                .build_pointer_cast(
-                    l,
-                    bin.context.i32_type().ptr_type(AddressSpace::default()),
-                    "left",
-                )
-                .into(),
-            bin.builder
-                .build_pointer_cast(
-                    r,
-                    bin.context.i32_type().ptr_type(AddressSpace::default()),
-                    "right",
-                )
-                .into(),
-            bin.builder
-                .build_pointer_cast(
-                    o,
-                    bin.context.i32_type().ptr_type(AddressSpace::default()),
-                    "output",
-                )
-                .into(),
+            l.into(),
+            r.into(),
+            o.into(),
             bin.context
                 .i32_type()
                 .const_int(mul_bits as u64 / 32, false)
@@ -250,10 +215,10 @@ fn call_mul32_without_ovf<'a>(
         "",
     );
 
-    let res = bin.builder.build_load(o, "mul");
+    let res = bin.builder.build_load(mul_type, o, "mul");
 
     bin.builder
-        .build_int_truncate(res.into_int_value(), mul_type, "")
+        .build_int_truncate(res.into_int_value(), res_type, "")
 }
 
 /// Utility function to extract the sign bit of an IntValue
@@ -326,27 +291,9 @@ pub(super) fn multiply<'a, T: TargetRuntime<'a> + ?Sized>(
             let return_val = bin.builder.build_call(
                 bin.module.get_function("__mul32_with_builtin_ovf").unwrap(),
                 &[
-                    bin.builder
-                        .build_pointer_cast(
-                            l,
-                            bin.context.i32_type().ptr_type(AddressSpace::default()),
-                            "left",
-                        )
-                        .into(),
-                    bin.builder
-                        .build_pointer_cast(
-                            r,
-                            bin.context.i32_type().ptr_type(AddressSpace::default()),
-                            "right",
-                        )
-                        .into(),
-                    bin.builder
-                        .build_pointer_cast(
-                            o,
-                            bin.context.i32_type().ptr_type(AddressSpace::default()),
-                            "output",
-                        )
-                        .into(),
+                    l.into(),
+                    r.into(),
+                    o.into(),
                     bin.context
                         .i32_type()
                         .const_int(mul_bits as u64 / 32, false)
@@ -355,7 +302,7 @@ pub(super) fn multiply<'a, T: TargetRuntime<'a> + ?Sized>(
                 "ovf",
             );
 
-            let res = bin.builder.build_load(o, "mul");
+            let res = bin.builder.build_load(mul_ty, o, "mul");
 
             let error_block = bin.context.append_basic_block(function, "error");
             let return_block = bin.context.append_basic_block(function, "return_block");
@@ -418,7 +365,7 @@ pub(super) fn multiply<'a, T: TargetRuntime<'a> + ?Sized>(
             bin.builder
                 .build_int_truncate(res.into_int_value(), left.get_type(), "")
         } else {
-            return call_mul32_without_ovf(bin, l, r, o, mul_bits, left.get_type());
+            return call_mul32_without_ovf(bin, l, r, o, mul_bits, mul_ty, left.get_type());
         }
     } else if bin.options.math_overflow_check && !unchecked {
         build_binary_op_with_overflow_check(

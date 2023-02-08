@@ -38,6 +38,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         _function: FunctionValue,
         _slot: PointerValue,
         _dest: PointerValue,
+        _dest_ty: BasicTypeEnum,
     ) {
         unimplemented!();
     }
@@ -81,16 +82,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
     ) -> IntValue<'a> {
         let data = self.contract_storage_data(binary);
 
-        let member = unsafe { binary.builder.build_gep(data, &[slot], "data") };
-        let offset_ptr = binary.builder.build_pointer_cast(
-            member,
-            binary.context.i32_type().ptr_type(AddressSpace::default()),
-            "offset_ptr",
-        );
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[slot], "data")
+        };
 
         let offset = binary
             .builder
-            .build_load(offset_ptr, "offset")
+            .build_load(binary.context.i32_type(), member, "offset")
             .into_int_value();
 
         let length = binary
@@ -134,9 +134,16 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         let offset = binary.builder.build_int_add(offset, index, "offset");
 
-        let member = unsafe { binary.builder.build_gep(data, &[offset], "data") };
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[offset], "data")
+        };
 
-        binary.builder.build_load(member, "val").into_int_value()
+        binary
+            .builder
+            .build_load(binary.context.i8_type(), member, "val")
+            .into_int_value()
     }
 
     fn set_storage_bytes_subscript(
@@ -149,16 +156,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
     ) {
         let data = self.contract_storage_data(binary);
 
-        let member = unsafe { binary.builder.build_gep(data, &[slot], "data") };
-        let offset_ptr = binary.builder.build_pointer_cast(
-            member,
-            binary.context.i32_type().ptr_type(AddressSpace::default()),
-            "offset_ptr",
-        );
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[slot], "data")
+        };
 
         let offset = binary
             .builder
-            .build_load(offset_ptr, "offset")
+            .build_load(binary.context.i32_type(), member, "offset")
             .into_int_value();
 
         let length = binary
@@ -201,7 +207,11 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         let offset = binary.builder.build_int_add(offset, index, "offset");
 
-        let member = unsafe { binary.builder.build_gep(data, &[offset], "data") };
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[offset], "data")
+        };
 
         binary.builder.build_store(member, val);
     }
@@ -230,6 +240,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             // 3rd member of account is data pointer
             let data = unsafe {
                 binary.builder.build_gep(
+                    binary
+                        .module
+                        .get_struct_type("struct.SolAccountInfo")
+                        .unwrap(),
                     account,
                     &[
                         binary.context.i32_type().const_zero(),
@@ -239,18 +253,24 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 )
             };
 
-            let data = binary.builder.build_load(data, "data").into_pointer_value();
+            let data = binary
+                .builder
+                .build_load(
+                    binary.context.i8_type().ptr_type(AddressSpace::default()),
+                    data,
+                    "data",
+                )
+                .into_pointer_value();
 
-            let member = unsafe { binary.builder.build_gep(data, &[slot], "data") };
-            let offset_ptr = binary.builder.build_pointer_cast(
-                member,
-                binary.context.i32_type().ptr_type(AddressSpace::default()),
-                "offset_ptr",
-            );
+            let member = unsafe {
+                binary
+                    .builder
+                    .build_gep(binary.context.i8_type(), data, &[slot], "data")
+            };
 
             let offset = binary
                 .builder
-                .build_load(offset_ptr, "offset")
+                .build_load(binary.context.i32_type(), member, "offset")
                 .into_int_value();
 
             let elem_ty = ty.storage_array_elem().deref_into();
@@ -282,16 +302,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let data = self.contract_storage_data(binary);
         let account = self.contract_storage_account(binary);
 
-        let member = unsafe { binary.builder.build_gep(data, &[slot], "data") };
-        let offset_ptr = binary.builder.build_pointer_cast(
-            member,
-            binary.context.i32_type().ptr_type(AddressSpace::default()),
-            "offset_ptr",
-        );
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[slot], "data")
+        };
 
         let offset = binary
             .builder
-            .build_load(offset_ptr, "offset")
+            .build_load(binary.context.i32_type(), member, "offset")
             .into_int_value();
 
         let length = binary
@@ -322,7 +341,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     account.into(),
                     offset.into(),
                     new_length.into(),
-                    offset_ptr.into(),
+                    member.into(),
                 ],
                 "new_offset",
             )
@@ -357,7 +376,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let mut new_offset = binary.builder.build_int_add(
             binary
                 .builder
-                .build_load(offset_ptr, "offset")
+                .build_load(binary.context.i32_type(), member, "offset")
                 .into_int_value(),
             length,
             "",
@@ -388,16 +407,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let data = self.contract_storage_data(binary);
         let account = self.contract_storage_account(binary);
 
-        let member = unsafe { binary.builder.build_gep(data, &[slot], "data") };
-        let offset_ptr = binary.builder.build_pointer_cast(
-            member,
-            binary.context.i32_type().ptr_type(AddressSpace::default()),
-            "offset_ptr",
-        );
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[slot], "data")
+        };
 
         let offset = binary
             .builder
-            .build_load(offset_ptr, "offset")
+            .build_load(binary.context.i32_type(), member, "offset")
             .into_int_value();
 
         let length = binary
@@ -467,7 +485,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 account.into(),
                 offset.into(),
                 new_length.into(),
-                offset_ptr.into(),
+                member.into(),
             ],
             "new_offset",
         );
@@ -486,18 +504,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let data = self.contract_storage_data(binary);
 
         // the slot is simply the offset after the magic
-        let member = unsafe { binary.builder.build_gep(data, &[slot], "data") };
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[slot], "data")
+        };
 
         let offset = binary
             .builder
-            .build_load(
-                binary.builder.build_pointer_cast(
-                    member,
-                    binary.context.i32_type().ptr_type(AddressSpace::default()),
-                    "",
-                ),
-                "offset",
-            )
+            .build_load(binary.context.i32_type(), member, "offset")
             .into_int_value();
 
         let member_size = binary
@@ -546,20 +561,17 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let data = self.contract_storage_data(binary);
 
         // the slot is simply the offset after the magic
-        let member = unsafe { binary.builder.build_gep(data, &[*slot], "data") };
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[*slot], "data")
+        };
 
         match ty {
             ast::Type::String | ast::Type::DynamicBytes => {
                 let offset = binary
                     .builder
-                    .build_load(
-                        binary.builder.build_pointer_cast(
-                            member,
-                            binary.context.i32_type().ptr_type(AddressSpace::default()),
-                            "",
-                        ),
-                        "offset",
-                    )
+                    .build_load(binary.context.i32_type(), member, "offset")
                     .into_int_value();
 
                 let string_length = binary
@@ -574,8 +586,14 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .unwrap()
                     .into_int_value();
 
-                let string_data =
-                    unsafe { binary.builder.build_gep(data, &[offset], "string_data") };
+                let string_data = unsafe {
+                    binary.builder.build_gep(
+                        binary.context.i8_type(),
+                        data,
+                        &[offset],
+                        "string_data",
+                    )
+                };
 
                 binary
                     .builder
@@ -613,12 +631,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .unwrap()
                     .into_pointer_value();
 
-                let dest = binary.builder.build_pointer_cast(
-                    new,
-                    llvm_ty.ptr_type(AddressSpace::default()),
-                    "dest",
-                );
-
                 for (i, field) in struct_ty.definition(ns).fields.iter().enumerate() {
                     let field_offset = struct_ty.definition(ns).storage_offsets[i]
                         .to_u64()
@@ -634,7 +646,8 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                     let elem = unsafe {
                         binary.builder.build_gep(
-                            dest,
+                            llvm_ty,
+                            new,
                             &[
                                 binary.context.i32_type().const_zero(),
                                 binary.context.i32_type().const_int(i as u64, false),
@@ -644,7 +657,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     };
 
                     let val = if field.ty.is_fixed_reference_type() {
-                        binary.builder.build_load(val.into_pointer_value(), "elem")
+                        let load_ty = binary.llvm_type(&field.ty, ns);
+                        binary
+                            .builder
+                            .build_load(load_ty, val.into_pointer_value(), "elem")
                     } else {
                         val
                     };
@@ -652,7 +668,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     binary.builder.build_store(elem, val);
                 }
 
-                dest.into()
+                new.into()
             }
             ast::Type::Array(elem_ty, dim) => {
                 let llvm_ty = binary.llvm_type(ty.deref_any(), ns);
@@ -669,7 +685,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         "size_of",
                     );
 
-                    let new = binary
+                    dest = binary
                         .builder
                         .build_call(
                             binary.module.get_function("__malloc").unwrap(),
@@ -681,11 +697,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                         .unwrap()
                         .into_pointer_value();
 
-                    dest = binary.builder.build_pointer_cast(
-                        new,
-                        llvm_ty.ptr_type(AddressSpace::default()),
-                        "dest",
-                    );
                     length = binary.context.i32_type().const_int(
                         if let Some(ast::ArrayLength::Fixed(d)) = dim.last() {
                             d.to_u64().unwrap()
@@ -706,14 +717,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                     slot = binary
                         .builder
-                        .build_load(
-                            binary.builder.build_pointer_cast(
-                                member,
-                                binary.context.i32_type().ptr_type(AddressSpace::default()),
-                                "",
-                            ),
-                            "offset",
-                        )
+                        .build_load(binary.context.i32_type(), member, "offset")
                         .into_int_value();
 
                     dest = binary.vector_new(length, elem_size, None);
@@ -745,7 +749,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 );
 
                 let val = if elem_ty.deref_memory().is_fixed_reference_type() {
-                    binary.builder.build_load(val.into_pointer_value(), "elem")
+                    let load_ty = binary.llvm_type(elem_ty.deref_any(), ns);
+                    binary
+                        .builder
+                        .build_load(load_ty, val.into_pointer_value(), "elem")
                 } else {
                     val
                 };
@@ -766,14 +773,9 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 dest.into()
             }
-            _ => binary.builder.build_load(
-                binary.builder.build_pointer_cast(
-                    member,
-                    binary.llvm_type(ty, ns).ptr_type(AddressSpace::default()),
-                    "",
-                ),
-                "",
-            ),
+            _ => binary
+                .builder
+                .build_load(binary.llvm_var_ty(ty, ns), member, ""),
         }
     }
 
@@ -791,21 +793,19 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         let account = self.contract_storage_account(binary);
 
         // the slot is simply the offset after the magic
-        let member = unsafe { binary.builder.build_gep(data, &[*offset], "data") };
+        let member = unsafe {
+            binary
+                .builder
+                .build_gep(binary.context.i8_type(), data, &[*offset], "data")
+        };
 
         if *ty == ast::Type::String || *ty == ast::Type::DynamicBytes {
-            let offset_ptr = binary.builder.build_pointer_cast(
-                member,
-                binary.context.i32_type().ptr_type(AddressSpace::default()),
-                "offset_ptr",
-            );
-
             let new_string_length = binary.vector_len(val);
 
             let offset = if existing {
                 let offset = binary
                     .builder
-                    .build_load(offset_ptr, "offset")
+                    .build_load(binary.context.i32_type(), member, "offset")
                     .into_int_value();
 
                 // get the length of the existing string in storage
@@ -852,7 +852,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .builder
                     .build_call(
                         binary.module.get_function("account_data_alloc").unwrap(),
-                        &[account.into(), new_string_length.into(), offset_ptr.into()],
+                        &[account.into(), new_string_length.into(), member.into()],
                         "alloc",
                     )
                     .try_as_basic_value()
@@ -883,7 +883,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 binary.builder.position_at_end(rc_zero);
 
-                let new_offset = binary.builder.build_load(offset_ptr, "new_offset");
+                let new_offset =
+                    binary
+                        .builder
+                        .build_load(binary.context.i32_type(), member, "new_offset");
 
                 binary.builder.build_unconditional_branch(memcpy);
 
@@ -902,7 +905,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .builder
                     .build_call(
                         binary.module.get_function("account_data_alloc").unwrap(),
-                        &[account.into(), new_string_length.into(), offset_ptr.into()],
+                        &[account.into(), new_string_length.into(), member.into()],
                         "alloc",
                     )
                     .try_as_basic_value()
@@ -935,14 +938,17 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 binary
                     .builder
-                    .build_load(offset_ptr, "new_offset")
+                    .build_load(binary.context.i32_type(), member, "new_offset")
                     .into_int_value()
             };
 
             let dest_string_data = unsafe {
-                binary
-                    .builder
-                    .build_gep(data, &[offset], "dest_string_data")
+                binary.builder.build_gep(
+                    binary.context.i8_type(),
+                    data,
+                    &[offset],
+                    "dest_string_data",
+                )
             };
 
             binary.builder.build_call(
@@ -959,12 +965,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             if existing {
                 self.storage_free(binary, ty, data, *offset, function, false, ns);
             }
-
-            let offset_ptr = binary.builder.build_pointer_cast(
-                member,
-                binary.context.i32_type().ptr_type(AddressSpace::default()),
-                "offset_ptr",
-            );
 
             let length = if let Some(ast::ArrayLength::Fixed(length)) = dim.last() {
                 binary
@@ -988,7 +988,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     .build_int_mul(length, member_size, "new_length");
                 let offset = binary
                     .builder
-                    .build_load(offset_ptr, "offset")
+                    .build_load(binary.context.i32_type(), member, "offset")
                     .into_int_value();
 
                 let rc = binary
@@ -999,7 +999,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                             account.into(),
                             offset.into(),
                             new_length.into(),
-                            offset_ptr.into(),
+                            member.into(),
                         ],
                         "new_offset",
                     )
@@ -1033,7 +1033,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 elem_slot = binary
                     .builder
-                    .build_load(offset_ptr, "offset")
+                    .build_load(binary.context.i32_type(), member, "offset")
                     .into_int_value();
             }
 
@@ -1062,7 +1062,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 if elem_ty.deref_memory().is_fixed_reference_type() {
                     elem.into()
                 } else {
-                    binary.builder.build_load(elem, "array_elem")
+                    let load_ty = if elem_ty.is_dynamic(ns) {
+                        binary
+                            .llvm_type(elem_ty.deref_memory(), ns)
+                            .ptr_type(AddressSpace::default())
+                            .as_basic_type_enum()
+                    } else {
+                        binary.llvm_type(elem_ty.deref_memory(), ns)
+                    };
+                    binary.builder.build_load(load_ty, elem, "array_elem")
                 },
                 function,
                 ns,
@@ -1091,8 +1099,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     "field_offset",
                 );
 
+                let val_ty = binary.llvm_type(ty, ns);
                 let elem = unsafe {
                     binary.builder.build_gep(
+                        val_ty,
                         val.into_pointer_value(),
                         &[
                             binary.context.i32_type().const_zero(),
@@ -1115,21 +1125,24 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     if field.ty.is_fixed_reference_type() {
                         elem.into()
                     } else {
-                        binary.builder.build_load(elem, field.name_as_str())
+                        let load_ty = if field.ty.is_dynamic(ns) {
+                            binary
+                                .llvm_type(&field.ty, ns)
+                                .ptr_type(AddressSpace::default())
+                                .as_basic_type_enum()
+                        } else {
+                            binary.llvm_type(&field.ty, ns)
+                        };
+                        binary
+                            .builder
+                            .build_load(load_ty, elem, field.name_as_str())
                     },
                     function,
                     ns,
                 );
             }
         } else {
-            binary.builder.build_store(
-                binary.builder.build_pointer_cast(
-                    member,
-                    val.get_type().ptr_type(AddressSpace::default()),
-                    "",
-                ),
-                val,
-            );
+            binary.builder.build_store(member, val);
         }
     }
 
@@ -1259,41 +1272,19 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         seeds: Option<(PointerValue<'b>, IntValue<'b>)>,
         ns: &ast::Namespace,
     ) {
-        let const_program_id = binary.builder.build_pointer_cast(
-            binary.emit_global_string(
-                "const_program_id",
-                ns.contracts[contract_no].program_id.as_ref().unwrap(),
-                true,
-            ),
-            binary
-                .module
-                .get_struct_type("struct.SolPubkey")
-                .unwrap()
-                .ptr_type(AddressSpace::default()),
+        let const_program_id = binary.emit_global_string(
             "const_program_id",
+            ns.contracts[contract_no].program_id.as_ref().unwrap(),
+            true,
         );
 
         let sol_params = function.get_last_param().unwrap().into_pointer_value();
 
         let create_contract = binary.module.get_function("create_contract").unwrap();
 
-        let address = binary.builder.build_pointer_cast(
-            address,
-            binary
-                .module
-                .get_struct_type("struct.SolPubkey")
-                .unwrap()
-                .ptr_type(AddressSpace::default()),
-            "address",
-        );
-
         let (signer_seeds, signer_seeds_len) = if let Some((seeds, len)) = seeds {
             (
-                binary.builder.build_pointer_cast(
-                    seeds,
-                    create_contract.get_type().get_param_types()[4].into_pointer_type(),
-                    "seeds",
-                ),
+                seeds,
                 binary.builder.build_int_cast(
                     len,
                     create_contract.get_type().get_param_types()[5].into_int_type(),
@@ -1364,6 +1355,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
         function: FunctionValue<'a>,
         builtin_func: &ast::Function,
         args: &[BasicMetadataValueEnum<'a>],
+        first_arg_type: BasicTypeEnum,
         ns: &ast::Namespace,
     ) -> BasicValueEnum<'a> {
         if builtin_func.name == "create_program_address" {
@@ -1372,25 +1364,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 .get_function("sol_create_program_address")
                 .unwrap();
 
-            // first argument are the seeds
-            let seeds = binary.builder.build_pointer_cast(
-                args[0].into_pointer_value(),
-                func.get_first_param()
-                    .unwrap()
-                    .get_type()
-                    .into_pointer_type(),
-                "seeds",
-            );
-
-            let seed_count = binary.context.i64_type().const_int(
-                args[0]
-                    .into_pointer_value()
-                    .get_type()
-                    .get_element_type()
-                    .into_array_type()
-                    .len() as u64,
-                false,
-            );
+            let seed_count = binary
+                .context
+                .i64_type()
+                .const_int(first_arg_type.into_array_type().len() as u64, false);
 
             // address
             let address = binary.build_alloca(function, binary.address_type(ns), "address");
@@ -1404,7 +1381,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 .build_call(
                     func,
                     &[
-                        seeds.into(),
+                        args[0].into_pointer_value().into(),
                         seed_count.into(),
                         address.into(),
                         args[2], // return value
@@ -1420,25 +1397,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 .get_function("sol_try_find_program_address")
                 .unwrap();
 
-            // first argument are the seeds
-            let seeds = binary.builder.build_pointer_cast(
-                args[0].into_pointer_value(),
-                func.get_first_param()
-                    .unwrap()
-                    .get_type()
-                    .into_pointer_type(),
-                "seeds",
-            );
-
-            let seed_count = binary.context.i64_type().const_int(
-                args[0]
-                    .into_pointer_value()
-                    .get_type()
-                    .get_element_type()
-                    .into_array_type()
-                    .len() as u64,
-                false,
-            );
+            let seed_count = binary
+                .context
+                .i64_type()
+                .const_int(first_arg_type.into_array_type().len() as u64, false);
 
             // address
             let address = binary.build_alloca(function, binary.address_type(ns), "address");
@@ -1452,7 +1414,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 .build_call(
                     func,
                     &[
-                        seeds.into(),
+                        args[0].into_pointer_value().into(),
                         seed_count.into(),
                         address.into(),
                         args[2], // return address/pubkey
@@ -1499,39 +1461,23 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             binary.builder.build_store(
                 binary
                     .builder
-                    .build_struct_gep(instruction, 0, "program_id")
+                    .build_struct_gep(instruction_ty, instruction, 0, "program_id")
                     .unwrap(),
-                binary.builder.build_pointer_cast(
-                    address,
-                    binary
-                        .module
-                        .get_struct_type("struct.SolPubkey")
-                        .unwrap()
-                        .ptr_type(AddressSpace::default()),
-                    "SolPubkey",
-                ),
+                address,
             );
 
             binary.builder.build_store(
                 binary
                     .builder
-                    .build_struct_gep(instruction, 1, "accounts")
+                    .build_struct_gep(instruction_ty, instruction, 1, "accounts")
                     .unwrap(),
-                binary.builder.build_pointer_cast(
-                    accounts,
-                    binary
-                        .module
-                        .get_struct_type("struct.SolAccountMeta")
-                        .unwrap()
-                        .ptr_type(AddressSpace::default()),
-                    "SolAccountMeta",
-                ),
+                accounts,
             );
 
             binary.builder.build_store(
                 binary
                     .builder
-                    .build_struct_gep(instruction, 2, "accounts_len")
+                    .build_struct_gep(instruction_ty, instruction, 2, "accounts_len")
                     .unwrap(),
                 binary.builder.build_int_z_extend(
                     accounts_len,
@@ -1543,19 +1489,15 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             binary.builder.build_store(
                 binary
                     .builder
-                    .build_struct_gep(instruction, 3, "data")
+                    .build_struct_gep(instruction_ty, instruction, 3, "data")
                     .unwrap(),
-                binary.builder.build_pointer_cast(
-                    payload,
-                    binary.context.i8_type().ptr_type(AddressSpace::default()),
-                    "data",
-                ),
+                payload,
             );
 
             binary.builder.build_store(
                 binary
                     .builder
-                    .build_struct_gep(instruction, 4, "data_len")
+                    .build_struct_gep(instruction_ty, instruction, 4, "data_len")
                     .unwrap(),
                 binary.builder.build_int_z_extend(
                     payload_len,
@@ -1566,26 +1508,35 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
             let parameters = self.sol_parameters(binary);
 
-            let account_infos = binary.builder.build_pointer_cast(
-                binary
-                    .builder
-                    .build_struct_gep(parameters, 0, "ka")
-                    .unwrap(),
-                binary
-                    .module
-                    .get_struct_type("struct.SolAccountInfo")
-                    .unwrap()
-                    .ptr_type(AddressSpace::default()),
-                "SolAccountInfo",
-            );
+            let account_infos = binary
+                .builder
+                .build_struct_gep(
+                    binary
+                        .module
+                        .get_struct_type("struct.SolParameters")
+                        .unwrap(),
+                    parameters,
+                    0,
+                    "ka",
+                )
+                .unwrap();
 
             let account_infos_len = binary.builder.build_int_truncate(
                 binary
                     .builder
                     .build_load(
+                        binary.context.i64_type(),
                         binary
                             .builder
-                            .build_struct_gep(parameters, 1, "ka_num")
+                            .build_struct_gep(
+                                binary
+                                    .module
+                                    .get_struct_type("struct.SolParameters")
+                                    .unwrap(),
+                                parameters,
+                                1,
+                                "ka_num",
+                            )
                             .unwrap(),
                         "ka_num",
                     )
@@ -1598,11 +1549,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
             let (signer_seeds, signer_seeds_len) = if let Some((seeds, len)) = seeds {
                 (
-                    binary.builder.build_pointer_cast(
-                        seeds,
-                        external_call.get_type().get_param_types()[3].into_pointer_type(),
-                        "seeds",
-                    ),
+                    seeds,
                     binary.builder.build_int_cast(
                         len,
                         external_call.get_type().get_param_types()[4].into_int_type(),
@@ -1641,17 +1588,6 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             let parameters = self.sol_parameters(binary);
 
             let external_call = binary.module.get_function("external_call").unwrap();
-
-            // cast [u8; 32]* to SolPubkey*
-            let address = binary.builder.build_pointer_cast(
-                address,
-                binary
-                    .module
-                    .get_struct_type("struct.SolPubkey")
-                    .unwrap()
-                    .ptr_type(AddressSpace::default()),
-                "address",
-            );
 
             binary
                 .builder
@@ -1764,19 +1700,10 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             .unwrap()
             .into_pointer_value();
 
-        let v = binary.builder.build_pointer_cast(
-            p,
-            binary
-                .module
-                .get_struct_type("struct.vector")
-                .unwrap()
-                .ptr_type(AddressSpace::default()),
-            "string",
-        );
-
         let data_len = unsafe {
             binary.builder.build_gep(
-                v,
+                binary.module.get_struct_type("struct.vector").unwrap(),
+                p,
                 &[
                     binary.context.i32_type().const_zero(),
                     binary.context.i32_type().const_zero(),
@@ -1789,7 +1716,8 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         let data_size = unsafe {
             binary.builder.build_gep(
-                v,
+                binary.module.get_struct_type("struct.vector").unwrap(),
+                p,
                 &[
                     binary.context.i32_type().const_zero(),
                     binary.context.i32_type().const_int(1, false),
@@ -1802,7 +1730,8 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         let data = unsafe {
             binary.builder.build_gep(
-                v,
+                binary.module.get_struct_type("struct.vector").unwrap(),
+                p,
                 &[
                     binary.context.i32_type().const_zero(),
                     binary.context.i32_type().const_int(2, false),
@@ -1820,29 +1749,11 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         binary.builder.build_call(
             binary.module.get_function("sol_get_return_data").unwrap(),
-            &[
-                binary
-                    .builder
-                    .build_pointer_cast(
-                        data,
-                        binary.context.i8_type().ptr_type(AddressSpace::default()),
-                        "",
-                    )
-                    .into(),
-                length_as_64.into(),
-                binary
-                    .builder
-                    .build_pointer_cast(
-                        program_id,
-                        binary.context.i8_type().ptr_type(AddressSpace::default()),
-                        "",
-                    )
-                    .into(),
-            ],
+            &[data.into(), length_as_64.into(), program_id.into()],
             "",
         );
 
-        v
+        p
     }
 
     fn return_code<'b>(&self, binary: &'b Binary, ret: IntValue<'b>) {
@@ -1908,6 +1819,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         let field_data = unsafe {
             binary.builder.build_gep(
+                binary.module.get_struct_type("SolLogDataField").unwrap(),
                 fields,
                 &[
                     binary.context.i32_type().const_zero(),
@@ -1922,6 +1834,7 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
         let field_len = unsafe {
             binary.builder.build_gep(
+                binary.module.get_struct_type("SolLogDataField").unwrap(),
                 fields,
                 &[
                     binary.context.i32_type().const_zero(),
@@ -1965,26 +1878,26 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 let sol_clock = binary.module.get_function("sol_clock").unwrap();
 
-                let arg1 = binary.builder.build_pointer_cast(
-                    parameters,
-                    sol_clock.get_type().get_param_types()[0].into_pointer_type(),
-                    "",
-                );
-
                 let clock = binary
                     .builder
-                    .build_call(sol_clock, &[arg1.into()], "clock")
+                    .build_call(sol_clock, &[parameters.into()], "clock")
                     .try_as_basic_value()
                     .left()
                     .unwrap()
                     .into_pointer_value();
 
+                // This is struct.clock_layout
+                let clock_struct = binary
+                    .context
+                    .struct_type(&[binary.context.i64_type().as_basic_type_enum(); 5], false);
                 let timestamp = binary
                     .builder
-                    .build_struct_gep(clock, 4, "unix_timestamp")
+                    .build_struct_gep(clock_struct, clock, 4, "unix_timestamp")
                     .unwrap();
 
-                binary.builder.build_load(timestamp, "timestamp")
+                binary
+                    .builder
+                    .build_load(binary.context.i64_type(), timestamp, "timestamp")
             }
             codegen::Expression::Builtin(
                 _,
@@ -1996,29 +1909,36 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 let sol_clock = binary.module.get_function("sol_clock").unwrap();
 
-                let arg1 = binary.builder.build_pointer_cast(
-                    parameters,
-                    sol_clock.get_type().get_param_types()[0].into_pointer_type(),
-                    "",
-                );
-
                 let clock = binary
                     .builder
-                    .build_call(sol_clock, &[arg1.into()], "clock")
+                    .build_call(sol_clock, &[parameters.into()], "clock")
                     .try_as_basic_value()
                     .left()
                     .unwrap()
                     .into_pointer_value();
 
-                let slot = binary.builder.build_struct_gep(clock, 0, "slot").unwrap();
+                // This is struct.clock_layout
+                let clock_struct = binary
+                    .context
+                    .struct_type(&[binary.context.i64_type().as_basic_type_enum(); 5], false);
+                let slot = binary
+                    .builder
+                    .build_struct_gep(clock_struct, clock, 0, "slot")
+                    .unwrap();
 
-                binary.builder.build_load(slot, "timestamp")
+                binary
+                    .builder
+                    .build_load(binary.context.i64_type(), slot, "timestamp")
             }
             codegen::Expression::Builtin(_, _, codegen::Builtin::GetAddress, _) => {
                 let parameters = self.sol_parameters(binary);
 
                 let key = unsafe {
                     binary.builder.build_gep(
+                        binary
+                            .module
+                            .get_struct_type("struct.SolParameters")
+                            .unwrap(),
                         parameters,
                         &[
                             binary.context.i32_type().const_int(0, false), // first SolParameters
@@ -2030,43 +1950,45 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                     )
                 };
 
-                // SolPubkey** => [u8; 32]**
-                let value = binary.builder.build_pointer_cast(
+                let key_pointer = binary.builder.build_load(
+                    binary.address_type(ns).ptr_type(AddressSpace::default()),
                     key,
-                    binary
-                        .address_type(ns)
-                        .ptr_type(AddressSpace::default())
-                        .ptr_type(AddressSpace::default()),
-                    "",
+                    "key_pointer",
                 );
 
-                let key_pointer = binary.builder.build_load(value, "key_pointer");
-
-                binary
-                    .builder
-                    .build_load(key_pointer.into_pointer_value(), "key")
+                binary.builder.build_load(
+                    binary.address_type(ns),
+                    key_pointer.into_pointer_value(),
+                    "key",
+                )
             }
             codegen::Expression::Builtin(_, _, codegen::Builtin::ProgramId, _) => {
                 let parameters = self.sol_parameters(binary);
 
+                let sol_pubkey_type = binary.module.get_struct_type("struct.SolPubkey").unwrap();
                 let account_id = binary
                     .builder
                     .build_load(
+                        sol_pubkey_type.ptr_type(AddressSpace::default()),
                         binary
                             .builder
-                            .build_struct_gep(parameters, 4, "program_id")
+                            .build_struct_gep(
+                                binary
+                                    .module
+                                    .get_struct_type("struct.SolParameters")
+                                    .unwrap(),
+                                parameters,
+                                4,
+                                "program_id",
+                            )
                             .unwrap(),
                         "program_id",
                     )
                     .into_pointer_value();
 
-                let value = binary.builder.build_pointer_cast(
-                    account_id,
-                    binary.address_type(ns).ptr_type(AddressSpace::default()),
-                    "",
-                );
-
-                binary.builder.build_load(value, "program_id")
+                binary
+                    .builder
+                    .build_load(binary.address_type(ns), account_id, "program_id")
             }
             codegen::Expression::Builtin(_, _, codegen::Builtin::Calldata, _) => {
                 let sol_params = self.sol_parameters(binary);
@@ -2074,9 +1996,18 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 let input = binary
                     .builder
                     .build_load(
+                        binary.context.i8_type().ptr_type(AddressSpace::default()),
                         binary
                             .builder
-                            .build_struct_gep(sol_params, 2, "input")
+                            .build_struct_gep(
+                                binary
+                                    .module
+                                    .get_struct_type("struct.SolParameters")
+                                    .unwrap(),
+                                sol_params,
+                                2,
+                                "input",
+                            )
                             .unwrap(),
                         "data",
                     )
@@ -2085,9 +2016,18 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 let input_len = binary
                     .builder
                     .build_load(
+                        binary.context.i64_type(),
                         binary
                             .builder
-                            .build_struct_gep(sol_params, 3, "input_len")
+                            .build_struct_gep(
+                                binary
+                                    .module
+                                    .get_struct_type("struct.SolParameters")
+                                    .unwrap(),
+                                sol_params,
+                                3,
+                                "input_len",
+                            )
                             .unwrap(),
                         "data_len",
                     )
@@ -2120,22 +2060,27 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 let input = binary
                     .builder
                     .build_load(
+                        binary.context.i8_type().ptr_type(AddressSpace::default()),
                         binary
                             .builder
-                            .build_struct_gep(sol_params, 2, "input")
+                            .build_struct_gep(
+                                binary
+                                    .module
+                                    .get_struct_type("struct.SolParameters")
+                                    .unwrap(),
+                                sol_params,
+                                2,
+                                "input",
+                            )
                             .unwrap(),
                         "data",
                     )
                     .into_pointer_value();
 
-                let selector = binary.builder.build_load(
-                    binary.builder.build_pointer_cast(
-                        input,
-                        binary.context.i64_type().ptr_type(AddressSpace::default()),
-                        "selector",
-                    ),
-                    "selector",
-                );
+                let selector =
+                    binary
+                        .builder
+                        .build_load(binary.context.i64_type(), input, "selector");
 
                 let bswap = binary.llvm_bswap(64);
 
@@ -2161,33 +2106,14 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
                 let parameters = self.sol_parameters(binary);
                 let signature_verify = binary.module.get_function("signature_verify").unwrap();
 
-                let arg1 = binary.builder.build_pointer_cast(
-                    message.into_pointer_value(),
-                    signature_verify.get_type().get_param_types()[1].into_pointer_type(),
-                    "",
-                );
-
-                let arg2 = binary.builder.build_pointer_cast(
-                    signature.into_pointer_value(),
-                    signature_verify.get_type().get_param_types()[2].into_pointer_type(),
-                    "",
-                );
-
                 let ret = binary
                     .builder
                     .build_call(
                         signature_verify,
                         &[
-                            binary
-                                .builder
-                                .build_pointer_cast(
-                                    address,
-                                    binary.context.i8_type().ptr_type(AddressSpace::default()),
-                                    "",
-                                )
-                                .into(),
-                            arg1.into(),
-                            arg2.into(),
+                            address.into(),
+                            message.into(),
+                            signature.into(),
                             parameters.into(),
                         ],
                         "",
@@ -2221,36 +2147,27 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 let parameters = self.sol_parameters(binary);
 
-                let params = account_lamport.get_type().get_param_types();
-
                 let lamport = binary
                     .builder
-                    .build_call(
-                        account_lamport,
-                        &[
-                            binary
-                                .builder
-                                .build_pointer_cast(address, params[0].into_pointer_type(), "")
-                                .into(),
-                            binary
-                                .builder
-                                .build_pointer_cast(parameters, params[1].into_pointer_type(), "")
-                                .into(),
-                        ],
-                        "",
-                    )
+                    .build_call(account_lamport, &[address.into(), parameters.into()], "")
                     .try_as_basic_value()
                     .left()
                     .unwrap()
                     .into_pointer_value();
 
-                binary.builder.build_load(lamport, "lamport")
+                binary
+                    .builder
+                    .build_load(binary.context.i64_type(), lamport, "lamport")
             }
             codegen::Expression::Builtin(_, _, codegen::Builtin::Accounts, _) => {
                 let parameters = self.sol_parameters(binary);
 
                 unsafe {
                     binary.builder.build_gep(
+                        binary
+                            .module
+                            .get_struct_type("struct.SolParameters")
+                            .unwrap(),
                         parameters,
                         &[
                             binary.context.i32_type().const_int(0, false),
@@ -2267,10 +2184,21 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
                 let ka_num = binary
                     .builder
-                    .build_struct_gep(parameters, 1, "ka_num")
+                    .build_struct_gep(
+                        binary
+                            .module
+                            .get_struct_type("struct.SolParameters")
+                            .unwrap(),
+                        parameters,
+                        1,
+                        "ka_num",
+                    )
                     .unwrap();
 
-                let ka_num = binary.builder.build_load(ka_num, "ka_num").into_int_value();
+                let ka_num = binary
+                    .builder
+                    .build_load(binary.context.i64_type(), ka_num, "ka_num")
+                    .into_int_value();
 
                 binary
                     .builder
@@ -2322,23 +2250,33 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
 
             let sol_keccak256 = binary.module.get_function(fname).unwrap();
 
-            // The first argument is a SolBytes *, get the struct
-            let sol_bytes = sol_keccak256.get_type().get_param_types()[0]
-                .into_pointer_type()
-                .get_element_type()
-                .into_struct_type();
+            // This is struct.SolBytes
+            let sol_bytes = binary.context.struct_type(
+                &[
+                    binary
+                        .context
+                        .i8_type()
+                        .ptr_type(AddressSpace::default())
+                        .as_basic_type_enum(),
+                    binary.context.i64_type().as_basic_type_enum(),
+                ],
+                false,
+            );
 
             let array = binary.build_alloca(function, sol_bytes, "sol_bytes");
 
             binary.builder.build_store(
-                binary.builder.build_struct_gep(array, 0, "input").unwrap(),
+                binary
+                    .builder
+                    .build_struct_gep(sol_bytes, array, 0, "input")
+                    .unwrap(),
                 input,
             );
 
             binary.builder.build_store(
                 binary
                     .builder
-                    .build_struct_gep(array, 1, "input_len")
+                    .build_struct_gep(sol_bytes, array, 1, "input_len")
                     .unwrap(),
                 binary
                     .builder
@@ -2367,20 +2305,20 @@ impl<'a> TargetRuntime<'a> for SolanaTarget {
             binary.module.get_function("__beNtoleN").unwrap(),
             &[
                 res.into(),
-                binary
-                    .builder
-                    .build_pointer_cast(
-                        temp,
-                        binary.context.i8_type().ptr_type(AddressSpace::default()),
-                        "",
-                    )
-                    .into(),
+                temp.into(),
                 binary.context.i32_type().const_int(hashlen, false).into(),
             ],
             "",
         );
 
-        binary.builder.build_load(temp, "hash").into_int_value()
+        binary
+            .builder
+            .build_load(
+                binary.llvm_type(&ast::Type::Bytes(hashlen as u8), ns),
+                temp,
+                "hash",
+            )
+            .into_int_value()
     }
 
     fn return_abi_data<'b>(
