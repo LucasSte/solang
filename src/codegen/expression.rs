@@ -1008,7 +1008,7 @@ pub fn expression(
             array,
             ..
         } => {
-            let index = func.unwrap().solana_accounts.get_index_of(item_name).unwrap();
+            let index = func.unwrap().solana_accounts.borrow().get_index_of(item_name).unwrap();
             let index = Expression::NumberLiteral(*loc, Type::Uint(32), BigInt::from(index));
             let arr = expression(array, cfg, contract_no, func, ns, vartab, opt);
             Expression::Subscript(*loc, Type::Ref(Box::new(Type::Struct(StructType::AccountInfo))),
