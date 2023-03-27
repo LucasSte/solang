@@ -33,7 +33,7 @@ pub fn function_prototype_annotations(
             | "mutable"
             | "mutableSigner" => {
                 if let pt::Expression::Variable(id) = &annotation.value {
-                    func.solana_accounts.insert(
+                    func.solana_accounts.borrow_mut().insert(
                         id.name.clone(),
                         SolanaAccount {
                             is_signer: annotation.id.name == "signer" || annotation.id.name == "mutableSigner",

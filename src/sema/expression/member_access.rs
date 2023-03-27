@@ -244,7 +244,7 @@ pub(super) fn member_access(
                 };
             } else if matches!(expr, Expression::Builtin {kind: Builtin::Accounts, ..}) &&
                 *elem_ty == Type::Struct(StructType::AccountInfo) {
-                return if let Some(index) = ns.functions[context.function_no.unwrap()].solana_accounts.get_index_of(&id.name) {
+                return if let Some(index) = ns.functions[context.function_no.unwrap()].solana_accounts.borrow().get_index_of(&id.name) {
                     Ok(
                         Expression::Subscript {
                             loc: id.loc,

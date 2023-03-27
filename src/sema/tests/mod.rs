@@ -10,11 +10,11 @@ use crate::{parse_and_resolve, sema::ast, FileResolver, Target};
 use solang_parser::pt::Loc;
 use std::ffi::OsStr;
 
-pub(crate) fn parse(src: &'static str) -> ast::Namespace {
+pub(crate) fn parse(src: &'static str, target: Target) -> ast::Namespace {
     let mut cache = FileResolver::new();
     cache.set_file_contents("test.sol", src.to_string());
 
-    let ns = parse_and_resolve(OsStr::new("test.sol"), &mut cache, Target::EVM);
+    let ns = parse_and_resolve(OsStr::new("test.sol"), &mut cache, target);
     ns
 }
 
@@ -255,7 +255,7 @@ fn constant_overflow_checks() {
     }
 
         "#;
-    let ns = parse(file);
+    let ns = parse(file, Target::default_substrate());
     let errors = ns.diagnostics.errors();
     let warnings = ns.diagnostics.warnings();
 
@@ -397,7 +397,7 @@ fn test_types() {
     }
 
         "#;
-    let ns = parse(file);
+    let ns = parse(file, Target::default_substrate());
     let errors = ns.diagnostics.errors();
 
     assert_eq!(
