@@ -1144,6 +1144,14 @@ pub enum Expression {
         function_no: usize,
         args: Vec<Expression>,
     },
+    /// A NamedSubscript happens when we index a tx.accounts using the account name:
+    /// tx.accounts.my_account. This is neither a Subscript nor a StructMember
+    NamedSubscript {
+        loc: pt::Loc,
+        ty: Type,
+        item_name: String,
+        array: Box<Expression>,
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
@@ -1317,6 +1325,13 @@ impl Recurse for Expression {
 }
 
 impl CodeLocation for Expression {
+    // TODO: As all expressions have a location, it can be lifted out of the enum
+    // This is only a suggestion, though
+    // e.g.:
+    // struct Expression {
+    //     loc: Loc,
+    //     kind: ExpressionKind // (this would be the enum)
+    // }
     fn loc(&self) -> pt::Loc {
         match self {
             Expression::BoolLiteral { loc, .. }
@@ -1383,7 +1398,8 @@ impl CodeLocation for Expression {
             | Expression::FormatString { loc, format: _ }
             | Expression::InterfaceId { loc, .. }
             | Expression::And { loc, .. }
-            | Expression::UserDefinedOperator { loc, .. } => *loc,
+            | Expression::UserDefinedOperator { loc, .. }
+            | Expression::NamedSubscript {loc, ..} => *loc,
         }
     }
 }

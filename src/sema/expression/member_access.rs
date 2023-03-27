@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::sema::ast::{ArrayLength, Builtin, Expression, Namespace, RetrieveType, Symbol, Type};
+use crate::sema::ast::{ArrayLength, Builtin, Expression, Namespace, RetrieveType, StructType, Symbol, Type};
 use crate::sema::builtin;
 use crate::sema::diagnostics::Diagnostics;
 use crate::sema::expression::constructor::circular_reference;
@@ -217,7 +217,7 @@ pub(super) fn member_access(
                 });
             }
         }
-        Type::Array(_, dim) => {
+        Type::Array(elem_ty, dim) => {
             if id.name == "length" {
                 return match dim.last().unwrap() {
                     ArrayLength::Dynamic => Ok(Expression::Builtin {
@@ -242,6 +242,32 @@ pub(super) fn member_access(
                     }
                     ArrayLength::AnyFixed => unreachable!(),
                 };
+            } else if matches!(expr, Expression::Builtin {kind: Builtin::Accounts, ..}) &&
+                *elem_ty == Type::Struct(StructType::AccountInfo) {
+                return if let Some(index) = ns.functions[context.function_no.unwrap()].solana_accounts.get_index_of(&id.name) {
+                    Ok(
+                        Expression::Subscript {
+                            loc: id.loc,
+                            ty: Type::Struct(StructType::AccountInfo),
+                            array_ty: Type::Array(
+                                Box::new(Type::Struct(StructType::AccountInfo)),
+                                vec![ArrayLength::Dynamic],
+                            ),
+                            array: Box::new(expr.clone()),
+                            index: Box::new(Expression::NumberLiteral {
+                                loc: id.loc,
+                                ty: Type::Uint(32),
+                                value: BigInt::from(index),
+                            })
+                        }
+                    )
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        id.loc,
+                        format!("account '{}' not declared", id.name)
+                    ));
+                    Err(())
+                }
             }
         }
         Type::String | Type::DynamicBytes => {

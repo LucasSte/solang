@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![cfg(test)]
+
+mod annotations;
+
 use crate::sema::ast::{Expression, Parameter, Statement, TryCatch, Type};
 use crate::sema::yul::ast::InlineAssembly;
 use crate::{parse_and_resolve, sema::ast, FileResolver, Target};

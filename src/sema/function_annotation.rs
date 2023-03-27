@@ -14,6 +14,7 @@ use crate::sema::expression::resolve_expression::expression;
 use crate::Target;
 use num_traits::ToPrimitive;
 use solang_parser::pt::{self, CodeLocation};
+use crate::sema::ast::SolanaAccount;
 
 /// Resolve the prototype annotation for functions (just the selector). These
 /// annotations can be resolved for functions without a body. This means they
@@ -28,6 +29,24 @@ pub fn function_prototype_annotations(
     for annotation in annotations {
         match annotation.id.name.as_str() {
             "selector" => function_selector(func, annotation, &mut diagnostics, ns),
+            "signer"
+            | "mutable"
+            | "mutableSigner" => {
+                if let pt::Expression::Variable(id) = &annotation.value {
+                    func.solana_accounts.insert(
+                        id.name.clone(),
+                        SolanaAccount {
+                            is_signer: annotation.id.name == "signer" || annotation.id.name == "mutableSigner",
+                            is_writer: annotation.id.name == "mutable" || annotation.id.name == "mutableSigner"
+                        }
+                    );
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        annotation.value.loc(),
+                        "invalid parameter for annotation".to_string()
+                    ));
+                }
+            },
             _ if !func.has_body => {
                 // function_body_annotations() is called iff there is a body
                 diagnostics.push(Diagnostic::error(
@@ -173,7 +192,10 @@ pub fn function_body_annotations(
 
     for note in annotations {
         match note.id.name.as_str() {
-            "selector" => {
+            "selector"
+            | "mutable"
+            | "signer"
+            | "mutableSigner" => {
                 // selectors already done in function_prototype_annotations
                 // without using a symbol table
             }

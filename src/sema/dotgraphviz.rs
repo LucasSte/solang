@@ -1381,6 +1381,11 @@ impl Dot {
                     self.add_expression(expr, func, ns, node, format!("entry #{no}"));
                 }
             }
+            Expression::NamedSubscript {loc, item_name, array, ..} => {
+                let labels = vec![format!("named subscript: {}", item_name), ns.loc_to_string(true, loc)];
+                let node = self.add_node(Node::new("list", labels), Some(parent), Some(parent_rel));
+                self.add_expression(array, func, ns, node, "array".to_string());
+            }
         }
     }
 

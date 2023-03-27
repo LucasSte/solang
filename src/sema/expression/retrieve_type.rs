@@ -50,6 +50,7 @@ impl RetrieveType for Expression {
             | Expression::PreDecrement { ty, .. }
             | Expression::PostIncrement { ty, .. }
             | Expression::PostDecrement { ty, .. }
+            | Expression::NamedSubscript {ty, ..}
             | Expression::Assign { ty, .. } => ty.clone(),
             Expression::Subscript { ty, .. } => ty.clone(),
             Expression::ZeroExt { to, .. }
