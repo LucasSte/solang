@@ -172,9 +172,13 @@ fn contract(contract_no: usize, ns: &mut Namespace, opt: &Options) {
         external_functions::add_external_functions(contract_no, ns);
 
         // all the functions should have a cfg_no assigned, so we can generate call instructions to the correct function
-        for (_, func_cfg) in ns.contracts[contract_no].all_functions.iter_mut() {
+        for (ast_no, func_cfg) in ns.contracts[contract_no].all_functions.iter_mut() {
             *func_cfg = cfg_no;
             cfg_no += 1;
+            if !ns.functions[*ast_no].solana_accounts.borrow().is_empty() {
+                // A function preamble will be necessary in this case to validate the accounts
+                cfg_no += 1;
+            }
         }
 
         // create a cfg number for yul functions

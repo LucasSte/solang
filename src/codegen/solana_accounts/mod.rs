@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod function_preamble;
+
 use crate::codegen::cfg::{ASTFunction, ControlFlowGraph, Instr, InternalCallTy};
 use crate::codegen::{Builtin, Expression};
 use crate::sema::ast::{Contract, Function, Mutability, Namespace, SolanaAccount};

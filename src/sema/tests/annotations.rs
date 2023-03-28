@@ -93,12 +93,10 @@ fn all_accounts_ok() {
 }
     "#;
     let ns = parse(src, Target::Solana);
-    for item in ns.diagnostics.iter() {
-        std::println!("{}", item.message);
-    }
+    assert_eq!(ns.diagnostics.len(), 1);
+    assert!(ns.diagnostics.contains_message("found contract 'test'"));
 }
 
 // TODO:
-// 1. Finish test
 // 2. Write preamble and runtime tests for it
 // 3. Write integrations tests that verify if the accounts are properly deserialized
