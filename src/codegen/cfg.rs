@@ -9,11 +9,12 @@ use super::{
     vector_to_slice, Options,
 };
 use crate::codegen::subexpression_elimination::common_sub_expression_elimination;
-use crate::codegen::{undefined_variable, Expression, LLVMName};
+use crate::codegen::{undefined_variable, Expression, LLVMName, solana_accounts};
 use crate::sema::ast::{
     CallTy, Contract, FunctionAttributes, Namespace, Parameter, RetrieveType, StringLocation,
     StructType, Type,
 };
+use solana_accounts::function_preamble::crate_preamble;
 use crate::sema::{contracts::collect_base_args, diagnostics::Diagnostics, Recurse};
 use crate::{sema::ast, Target};
 use indexmap::IndexMap;
@@ -1451,6 +1452,27 @@ pub fn generate_cfg(
             cfg.public = public;
             cfg.nonpayable = nonpayable;
             cfg.selector = ns.functions[func_no].selector(ns, &contract_no);
+        }
+
+        if !func.solana_accounts.borrow().is_empty() {
+            let preamble_cfg = create_preamble(&cfg.name, func_no, ns);
+            optimize_and_check_cfg(
+                &mut preamble_cfg,
+                ns,
+                ASTFunction::None,
+                opt
+            );
+            cfg.blocks[0].instr.insert(
+                0, Instr::Call {
+                    res: vec![],
+                    return_tys: vec![],
+                    call: InternalCallTy::Static {
+                        cfg_no: cfg_no + 1
+                    },
+                    args: vec![],
+                }
+            );
+            all_cfgs[cfg_no+1] = preamble_cfg;
         }
     }
 

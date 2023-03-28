@@ -7,7 +7,7 @@ use crate::codegen::vartable::Vartable;
 use crate::sema::ast::{ArrayLength, Namespace, StructType, Type};
 
 pub(crate) fn crate_preamble(
-    parent_func_name: String,
+    parent_func_name: &String,
     ast_func_no: usize,
     ns: &mut Namespace,
 ) -> ControlFlowGraph {
@@ -122,7 +122,7 @@ pub(crate) fn crate_preamble(
                     &mut vartab,
                     Instr::Print {
                         expr: Expression::BytesLiteral(Loc::Codegen,
-                        Type::String, format!("Account {} should be a signer", account_name).into_bytes())
+                        Type::String, format!("Account '{}' should be a signer", account_name).into_bytes())
                     }
                 );
                 cfg.add(
@@ -133,10 +133,77 @@ pub(crate) fn crate_preamble(
                 );
             }
             (false, true) => {
-                
+                validated_block = cfg.new_basic_block(format!("account_{}_validated", account_idx));
+                let failure = cfg.new_basic_block(format!("validation_{}_failed", account_idx));
+                cfg.add(
+                    &mut vartab,
+                    Instr::BranchCond {
+                        cond: writer_member,
+                        true_block: validated_block,
+                        false_block: failure,
+                    }
+                );
+                cfg.set_basic_block(failure);
+                cfg.add(
+                    &mut vartab,
+                    Instr::Print {
+                        expr: Expression::BytesLiteral(Loc::Codegen,
+                        Type::String, format!("Account '{}' should be mutable", account_name).into_bytes())
+                    }
+                );
+                cfg.add(
+                    &mut vartab,
+                    Instr::AssertFailure {
+                        encoded_args: None
+                    }
+                );
+            }
+            (true, true) => {
+                validated_block = cfg.new_basic_block(format!("account_{}_validated", account_idx));
+                let failure = cfg.new_basic_block(format!("validation_{}_failed", account_idx));
+                let cond = Expression::BitwiseAnd(
+                    Loc::Codegen,
+                    Type::Bool,
+                    Box::new(signer_member),
+                    Box::new(writer_member)
+                );
+                cfg.add(
+                    &mut vartab,
+                    Instr::BranchCond {
+                        cond,
+                        true_block: validated_block,
+                        false_block: failure,
+                    }
+                );
+                cfg.set_basic_block(failure);
+                cfg.add(
+                    &mut vartab,
+                    Instr::Print {
+                        expr: Expression::BytesLiteral(
+                            Loc::Codegen,
+                            Type::String,
+                            format!("Account '{}' should be a mutable signer", account_name).into_bytes()
+                        )
+                    }
+                );
+                cfg.add(
+                    &mut vartab,
+                    Instr::AssertFailure {encoded_args: None}
+                );
             }
         }
     }
+
+    let phis = vartab.pop_dirty_tracker();
+    cfg.set_phis(validated_block, phis);
+    cfg.set_basic_block(validated_block);
+    cfg.add(
+        &mut vartab,
+        Instr::Return {
+            value: vec![]
+        }
+    );
+
 
     cfg
 }
