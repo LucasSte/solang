@@ -82,9 +82,10 @@ fn all_accounts_ok() {
         return false;
     }
 
+    @reader(acc4)
     @mutableSigner(acc3)
     function test_mutable_signer(address ss) public view returns (bool) {
-        if(ss == tx.accounts.acc3.key) {
+        if(ss == tx.accounts.acc3.key && tx.accounts.acc4.is_signer) {
             return true;
         }
         return false;

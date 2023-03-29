@@ -30,6 +30,7 @@ pub fn function_prototype_annotations(
         match annotation.id.name.as_str() {
             "selector" => function_selector(func, annotation, &mut diagnostics, ns),
             "signer"
+            | "reader"
             | "mutable"
             | "mutableSigner" => {
                 if let pt::Expression::Variable(id) = &annotation.value {
@@ -195,6 +196,7 @@ pub fn function_body_annotations(
             "selector"
             | "mutable"
             | "signer"
+            | "reader"
             | "mutableSigner" => {
                 // selectors already done in function_prototype_annotations
                 // without using a symbol table

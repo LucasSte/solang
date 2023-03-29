@@ -14,7 +14,7 @@ use crate::sema::ast::{
     CallTy, Contract, FunctionAttributes, Namespace, Parameter, RetrieveType, StringLocation,
     StructType, Type,
 };
-use solana_accounts::function_preamble::crate_preamble;
+use solana_accounts::function_preamble::create_preamble;
 use crate::sema::{contracts::collect_base_args, diagnostics::Diagnostics, Recurse};
 use crate::{sema::ast, Target};
 use indexmap::IndexMap;
@@ -1454,8 +1454,8 @@ pub fn generate_cfg(
             cfg.selector = ns.functions[func_no].selector(ns, &contract_no);
         }
 
-        if !func.solana_accounts.borrow().is_empty() {
-            let preamble_cfg = create_preamble(&cfg.name, func_no, ns);
+        if !ns.functions[func_no].solana_accounts.borrow().is_empty() {
+            let mut preamble_cfg = create_preamble(&cfg.name, func_no, ns);
             optimize_and_check_cfg(
                 &mut preamble_cfg,
                 ns,

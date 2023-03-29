@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use num_bigint::BigInt;
 use solang_parser::pt::Loc;
 use crate::codegen::cfg::{ASTFunction, ControlFlowGraph, Instr};
@@ -6,7 +5,7 @@ use crate::codegen::{Builtin, Expression};
 use crate::codegen::vartable::Vartable;
 use crate::sema::ast::{ArrayLength, Namespace, StructType, Type};
 
-pub(crate) fn crate_preamble(
+pub(crate) fn create_preamble(
     parent_func_name: &String,
     ast_func_no: usize,
     ns: &mut Namespace,
@@ -49,16 +48,7 @@ pub(crate) fn crate_preamble(
         }
     );
     cfg.set_basic_block(out_of_bounds);
-    cfg.add(
-        &mut vartab,
-        Instr::Print {
-            expr: Expression::BytesLiteral(
-                Loc::Codegen,
-                Type::String,
-                b"An account is missing for the transaction".to_vec()
-            )
-        }
-    );
+    emit_print_message("An account is missing for the transaction".to_string(), &mut vartab, &mut cfg);
     cfg.add(
         &mut vartab,
         Instr::AssertFailure {encoded_args: None}
@@ -71,13 +61,13 @@ pub(crate) fn crate_preamble(
             Loc::Codegen,
             Type::Ref(Box::new(Type::Struct(StructType::AccountInfo))),
             Type::Array(Box::new(Type::Struct(StructType::AccountInfo)), vec![ArrayLength::Dynamic]),
+            Box::new(accounts.clone()),
             Box::new(
                 Expression::NumberLiteral(Loc::Codegen,
                 Type::Uint(32),
                     BigInt::from(account_idx)
                 )
             ),
-            Box::new(accounts.clone())
         );
         // TODO: Is the load necessary?
         let signer_member = Expression::StructMember(
@@ -93,16 +83,16 @@ pub(crate) fn crate_preamble(
             5
         );
 
-        let signer_member = Expression::Load(
-            Loc::Codegen,
-            Type::Bool,
-            Box::new(signer_member)
-        );
-        let writer_member = Expression::Load(
-            Loc::Codegen,
-            Type::Bool,
-            Box::new(writer_member)
-        );
+        // let signer_member = Expression::Load(
+        //     Loc::Codegen,
+        //     Type::Bool,
+        //     Box::new(signer_member)
+        // );
+        // let writer_member = Expression::Load(
+        //     Loc::Codegen,
+        //     Type::Bool,
+        //     Box::new(writer_member)
+        // );
 
         match (account_data.is_signer, account_data.is_writer) {
             (false, false) => (),
@@ -118,13 +108,7 @@ pub(crate) fn crate_preamble(
                     }
                 );
                 cfg.set_basic_block(failure);
-                cfg.add(
-                    &mut vartab,
-                    Instr::Print {
-                        expr: Expression::BytesLiteral(Loc::Codegen,
-                        Type::String, format!("Account '{}' should be a signer", account_name).into_bytes())
-                    }
-                );
+                emit_print_message(format!("Account '{}' should be a signer", account_name), &mut vartab, &mut cfg);
                 cfg.add(
                     &mut vartab,
                     Instr::AssertFailure {
@@ -144,13 +128,7 @@ pub(crate) fn crate_preamble(
                     }
                 );
                 cfg.set_basic_block(failure);
-                cfg.add(
-                    &mut vartab,
-                    Instr::Print {
-                        expr: Expression::BytesLiteral(Loc::Codegen,
-                        Type::String, format!("Account '{}' should be mutable", account_name).into_bytes())
-                    }
-                );
+                emit_print_message(format!("Account '{}' should be mutable", account_name), &mut vartab, &mut cfg);
                 cfg.add(
                     &mut vartab,
                     Instr::AssertFailure {
@@ -176,16 +154,7 @@ pub(crate) fn crate_preamble(
                     }
                 );
                 cfg.set_basic_block(failure);
-                cfg.add(
-                    &mut vartab,
-                    Instr::Print {
-                        expr: Expression::BytesLiteral(
-                            Loc::Codegen,
-                            Type::String,
-                            format!("Account '{}' should be a mutable signer", account_name).into_bytes()
-                        )
-                    }
-                );
+                emit_print_message(format!("Account '{}' should be a mutable signer", account_name), &mut vartab, &mut cfg);
                 cfg.add(
                     &mut vartab,
                     Instr::AssertFailure {encoded_args: None}
@@ -206,4 +175,23 @@ pub(crate) fn crate_preamble(
 
 
     cfg
+}
+
+fn emit_print_message(
+    message: String,
+    vartab: &mut Vartable,
+    cfg: &mut ControlFlowGraph,
+) {
+    let expr = Expression::AllocDynamicBytes(
+        Loc::Codegen,
+        Type::String,
+        Box::new(
+            Expression::NumberLiteral(Loc::Codegen, Type::Uint(32), BigInt::from(message.len()))
+        ),
+            Some(message.into_bytes())
+    );
+    cfg.add(
+        vartab,
+        Instr::Print {expr}
+    );
 }
