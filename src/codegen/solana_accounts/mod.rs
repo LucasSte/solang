@@ -2,8 +2,8 @@
 
 pub(super) mod function_preamble;
 
-use crate::codegen::cfg::{ASTFunction, ControlFlowGraph, Instr, InternalCallTy};
-use crate::codegen::{Builtin, Expression};
+use crate::codegen::cfg::{ASTFunction, ControlFlowGraph, Instr, InternalCallTy, optimize_and_check_cfg};
+use crate::codegen::{Builtin, Expression, Options};
 use crate::sema::ast::{Contract, Function, Mutability, Namespace, SolanaAccount};
 use crate::sema::Recurse;
 use base58::FromBase58;
@@ -13,6 +13,7 @@ use num_traits::Zero;
 use once_cell::sync::Lazy;
 use solang_parser::pt::FunctionTy;
 use std::collections::{HashMap, HashSet, VecDeque};
+use crate::codegen::solana_accounts::function_preamble::create_preamble;
 
 /// These are the accounts that we can collect from a contract and that Anchor will populate
 /// automatically if their names match the source code description:
@@ -123,8 +124,15 @@ impl RecurseData<'_> {
 }
 
 /// Collect the accounts this contract needs
-pub(super) fn collect_accounts_from_contract(contract_no: usize, ns: &Namespace) {
+pub(super) fn collect_accounts_from_contract(
+    contract_no: usize,
+    ns: &mut Namespace,
+    opt: &Options,
+) {
     let mut visiting_queue: IndexSet<(usize, usize)> = IndexSet::new();
+    // We are only creating the preamble for functions with the @signer, @reader, @mutable
+    // or @mutable signer annotation
+    let mut need_preamble : Vec<usize> = Vec::new();
 
     for func_no in ns.contracts[contract_no].all_functions.keys() {
         if ns.functions[*func_no].is_public()
@@ -134,6 +142,10 @@ pub(super) fn collect_accounts_from_contract(contract_no: usize, ns: &Namespace)
             )
         {
             let func = &ns.functions[*func_no];
+            if !func.solana_accounts.borrow().is_empty() {
+                need_preamble.push(*func_no);
+            }
+
             match &func.mutability {
                 Mutability::Pure(_) => (),
                 Mutability::View(_) => {
@@ -224,6 +236,30 @@ pub(super) fn collect_accounts_from_contract(contract_no: usize, ns: &Namespace)
         old_size = recurse_data.accounts_added;
         std::mem::swap(&mut visiting_queue, &mut recurse_data.next_queue);
         recurse_data.next_queue.clear();
+    }
+
+    for func_no in need_preamble {
+        // TODO: Can this be optimized?
+        let cfg_no = ns.contracts[contract_no].all_functions[&func_no];
+        let name = ns.contracts[contract_no].cfg[cfg_no].name.clone();
+        let mut preamble_cfg = create_preamble(&name, func_no, ns);
+        optimize_and_check_cfg(
+            &mut preamble_cfg,
+            ns,
+            ASTFunction::None,
+            opt
+        );
+        ns.contracts[contract_no].cfg[cfg_no].blocks[0].instr.insert(
+            0, Instr::Call {
+                res: vec![],
+                return_tys: vec![],
+                call: InternalCallTy::Static {
+                    cfg_no: cfg_no + 1
+                },
+                args: vec![],
+            }
+        );
+        ns.contracts[contract_no].cfg[cfg_no+1] = preamble_cfg;
     }
 }
 

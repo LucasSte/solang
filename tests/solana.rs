@@ -1491,13 +1491,13 @@ impl VirtualMachine {
     fn function(&mut self, name: &str, args: &[BorshToken]) -> Option<BorshToken> {
         let default_metas = self.default_metas();
 
-        self.function_metas(&default_metas, name, args)
+        self.function_metas(name, &default_metas, args)
     }
 
     fn function_metas(
         &mut self,
-        metas: &[AccountMeta],
         name: &str,
+        metas: &[AccountMeta],
         args: &[BorshToken],
     ) -> Option<BorshToken> {
         self.return_data = None;
@@ -1555,6 +1555,11 @@ impl VirtualMachine {
     }
 
     fn function_must_fail(&mut self, name: &str, args: &[BorshToken]) -> ProgramResult {
+        let default_metas = self.default_metas();
+        self.function_must_fail_with_metas(name, &default_metas, args)
+    }
+
+    fn function_must_fail_with_metas(&mut self, name: &str, metas: &[AccountMeta], args: &[BorshToken]) -> ProgramResult {
         let program = &self.stack[0];
 
         println!("function for {}", hex::encode(program.data));
@@ -1577,11 +1582,10 @@ impl VirtualMachine {
         let mut encoded = encode_arguments(args);
         calldata.append(&mut encoded);
 
-        let default_metas = self.default_metas();
 
         println!("input: {}", hex::encode(&calldata));
 
-        self.execute(&default_metas, &calldata)
+        self.execute(metas, &calldata)
     }
 
     fn default_metas(&self) -> Vec<AccountMeta> {

@@ -156,7 +156,7 @@ pub fn codegen(ns: &mut Namespace, opt: &Options) {
     if ns.target == Target::Solana {
         for contract_no in 0..ns.contracts.len() {
             if ns.contracts[contract_no].instantiable {
-                collect_accounts_from_contract(contract_no, ns);
+                collect_accounts_from_contract(contract_no, ns, opt);
             }
         }
     }
