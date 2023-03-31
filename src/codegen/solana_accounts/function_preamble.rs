@@ -80,7 +80,7 @@ pub(crate) fn create_preamble(
             Loc::Codegen,
             Type::Ref(Box::new(Type::Bool)),
             Box::new(subscript.clone()),
-            5
+            6
         );
 
         // let signer_member = Expression::Load(

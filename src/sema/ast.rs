@@ -378,12 +378,49 @@ impl Function {
             _ => ns.signature(&name, &params),
         };
 
+        let mut accounts : IndexMap<String, SolanaAccount> = IndexMap::new();
         let mutability = match mutability {
-            None => Mutability::Nonpayable(loc),
-            Some(pt::Mutability::Payable(loc)) => Mutability::Payable(loc),
+            None => {
+                // TODO: Can this be improved?
+                if ns.target == Target::Solana {
+                    accounts.insert(
+                        "dataAccount".to_string(),
+                        SolanaAccount {
+                            // The signer flag is going to be updated in codegen/solana_accounts/mod.rs
+                            is_signer: false,
+                            is_writer: true,
+                        }
+                    );
+                }
+                Mutability::Nonpayable(loc)
+            },
+            Some(pt::Mutability::Payable(loc)) =>  {
+                if ns.target == Target::Solana {
+                    accounts.insert(
+                        "dataAccount".to_string(),
+                        SolanaAccount {
+                            // The signer flag is going to be updated in codegen/solana_accounts/mod.rs
+                            is_signer: false,
+                            is_writer: true,
+                        }
+                    );
+                }
+                Mutability::Payable(loc)
+            },
             Some(pt::Mutability::Pure(loc)) => Mutability::Pure(loc),
-            Some(pt::Mutability::View(loc)) => Mutability::View(loc),
-            Some(pt::Mutability::Constant(loc)) => Mutability::View(loc),
+            Some(pt::Mutability::View(loc))
+            | Some(pt::Mutability::Constant(loc)) =>  {
+                if ns.target == Target::Solana {
+                    accounts.insert(
+                        "dataAccount".to_string(),
+                        SolanaAccount {
+                            is_writer: false,
+                            is_signer: false,
+                        }
+                    );
+                }
+                Mutability::View(loc)
+            },
         };
 
         let mangled_name = signature
@@ -418,7 +455,7 @@ impl Function {
             mangled_name,
             annotations: Vec::new(),
             mangled_name_contracts: HashSet::new(),
-            solana_accounts: IndexMap::new().into(),
+            solana_accounts: accounts.into(),
         }
     }
 

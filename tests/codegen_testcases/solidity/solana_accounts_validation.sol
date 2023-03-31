@@ -38,13 +38,13 @@ contract test {
     // CHECK: block0: # entry
 	// CHECK: branchcond (unsigned more uint32 2 > (builtin ArrayLength ((builtin Accounts ())))), block2, block1
     // CHECK: block1: # in_bounds
-	// CHECK: branchcond (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 0]) field 5), block3, block4
+	// CHECK: branchcond (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 1]) field 5), block3, block4
     // CHECK: block2: # out_of_bounds
 	// CHECK: print (alloc string uint32 41 "An account is missing for the transaction")
 	// CHECK: assert-failure
-    // CHECK: block3: # account_0_validated
+    // CHECK: block3: # account_1_validated
 	// CHECK: return
-    // CHECK: block4: # validation_0_failed
+    // CHECK: block4: # validation_1_failed
 	// CHECK: print (alloc string uint32 33 "Account \'acc1\' should be a signer")
 	// CHECK: assert-failure
 
@@ -64,18 +64,18 @@ contract test {
     // CHECK: block0: # entry
 	// CHECK: branchcond (unsigned more uint32 3 > (builtin ArrayLength ((builtin Accounts ())))), block2, block1
     // CHECK: block1: # in_bounds
-	// CHECK: branchcond (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 0]) field 5), block3, block4
+	// CHECK: branchcond (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 1]) field 5), block3, block4
     // CHECK: block2: # out_of_bounds
 	// CHECK: print (alloc string uint32 41 "An account is missing for the transaction")
 	// CHECK: assert-failure
-    // CHECK: block3: # account_0_validated
-	// CHECK: branchcond (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 1]) field 5), block5, block6
-    // CHECK: block4: # validation_0_failed
+    // CHECK: block3: # account_1_validated
+	// CHECK: branchcond (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 2]) field 6), block5, block6
+    // CHECK: block4: # validation_1_failed
 	// CHECK: print (alloc string uint32 33 "Account \'acc1\' should be a signer")
 	// CHECK: assert-failure
-    // CHECK: block5: # account_1_validated
+    // CHECK: block5: # account_2_validated
 	// CHECK: return
-    // CHECK: block6: # validation_1_failed
+    // CHECK: block6: # validation_2_failed
 	// CHECK: print (alloc string uint32 32 "Account \'acc2\' should be mutable")
 	// CHECK: assert-failure
 
@@ -94,13 +94,13 @@ contract test {
     // CHECK: block0: # entry
 	// CHECK: branchcond (unsigned more uint32 2 > (builtin ArrayLength ((builtin Accounts ())))), block2, block1
     // CHECK: block1: # in_bounds
-	// CHECK: branchcond ((struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 0]) field 5) & (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 0]) field 5)), block3, block4
+	// CHECK: branchcond ((struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 1]) field 5) & (struct (subscript struct AccountInfo[] (builtin Accounts ())[uint32 1]) field 6)), block3, block4
     // CHECK: block2: # out_of_bounds
 	// CHECK: print (alloc string uint32 41 "An account is missing for the transaction")
 	// CHECK: assert-failure
-    // CHECK: block3: # account_0_validated
+    // CHECK: block3: # account_1_validated
 	// CHECK: return
-    // CHECK: block4: # validation_0_failed
+    // CHECK: block4: # validation_1_failed
 	// CHECK: print (alloc string uint32 41 "Account \'acc3\' should be a mutable signer")
 	// CHECK: assert-failure
 }

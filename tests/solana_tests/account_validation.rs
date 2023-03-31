@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 use crate::borsh_encoding::BorshToken;
-use crate::{Account, AccountMeta, AccountState, build_solidity, Pubkey};
+use crate::{AccountMeta, AccountState, build_solidity, Pubkey};
 
 #[test]
 fn missing_account() {
@@ -107,12 +107,12 @@ fn account_signer() {
 
     let mut accounts = vec![
         AccountMeta {
-            pubkey: Pubkey([5; 32]),
-            is_writable: true,
-            is_signer: true,
+            pubkey: Pubkey(vm.stack[0].data),
+            is_writable: false,
+            is_signer: false,
         },
         AccountMeta {
-            pubkey: Pubkey(vm.stack[0].data),
+            pubkey: Pubkey([5; 32]),
             is_writable: false,
             is_signer: false,
         },
@@ -124,11 +124,11 @@ fn account_signer() {
         lamports: 0,
     });
 
-    // let results = vm.function_must_fail_with_metas("add", &accounts, &args);
-    // assert_eq!(results.unwrap(), 0x100000000);
-    // assert_eq!(vm.logs, "Account 'acc1' should be a signer");
+    let results = vm.function_must_fail_with_metas("add", &accounts, &args);
+    assert_eq!(results.unwrap(), 0x100000000);
+    assert_eq!(vm.logs, "Account 'acc1' should be a signer");
 
-    //accounts[1].is_signer = true;
+    accounts[1].is_signer = true;
     let results = vm.function_metas("add", &accounts, &args).unwrap();
     assert_eq!(results, BorshToken::Int {
         width: 256,
@@ -137,14 +137,14 @@ fn account_signer() {
 }
 
 #[test]
-fn account_not_mutable() {
+fn account_mutable() {
     let mut vm = build_solidity(
         r#"
     contract test {
 
     @mutable(acc1)
     function add(int256 a, int256 b) public view returns (int256) {
-        if (tx.accounts.acc1.is_writable) {
+        if (tx.accounts.acc1.is_signer) {
             return a-b;
         }
         return a+b;
@@ -166,7 +166,7 @@ fn account_not_mutable() {
         }
     ];
 
-    let accounts = vec![
+    let mut accounts = vec![
         AccountMeta {
             pubkey: Pubkey(vm.stack[0].data),
             is_writable: false,
@@ -188,11 +188,18 @@ fn account_not_mutable() {
     let results = vm.function_must_fail_with_metas("add", &accounts, &args);
     assert_eq!(results.unwrap(), 0x100000000);
     assert_eq!(vm.logs, "Account 'acc1' should be mutable");
+
+    accounts[1].is_writable = true;
+    let results = vm.function_metas("add", &accounts, &args).unwrap();
+    assert_eq!(results, BorshToken::Int {
+        width: 256,
+        value: BigInt::from(3u8)
+    });
 }
 
 
 #[test]
-fn account_not_mutable_signer() {
+fn account_mutable_signer() {
     let mut vm = build_solidity(
         r#"
     contract test {
@@ -257,4 +264,11 @@ fn account_not_mutable_signer() {
     let results = vm.function_must_fail_with_metas("add", &accounts, &args);
     assert_eq!(results.unwrap(), 0x100000000);
     assert_eq!(vm.logs, "Account 'acc1' should be a mutable signer");
+
+    accounts[1].is_signer = true;
+    let results = vm.function_metas("add", &accounts, &args).unwrap();
+    assert_eq!(results, BorshToken::Int {
+        width: 256,
+        value: BigInt::from(3)
+    });
 }

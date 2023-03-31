@@ -99,5 +99,4 @@ fn all_accounts_ok() {
 }
 
 // TODO:
-// 2. Write preamble and runtime tests for it
 // 3. Write integrations tests that verify if the accounts are properly deserialized

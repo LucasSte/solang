@@ -13,6 +13,7 @@ use num_traits::Zero;
 use once_cell::sync::Lazy;
 use solang_parser::pt::FunctionTy;
 use std::collections::{HashMap, HashSet, VecDeque};
+use indexmap::map::Entry;
 use crate::codegen::solana_accounts::function_preamble::create_preamble;
 
 /// These are the accounts that we can collect from a contract and that Anchor will populate
@@ -101,13 +102,12 @@ struct RecurseData<'a> {
 impl RecurseData<'_> {
     /// Add an account to the function's indexmap
     fn add_account(&mut self, account_name: String, account: SolanaAccount) {
-        if self.functions[self.ast_no]
-            .solana_accounts
-            .borrow_mut()
-            .insert(account_name, account)
-            .is_none()
-        {
-            self.accounts_added += 1;
+        match self.functions[self.ast_no].solana_accounts.borrow_mut().entry(account_name) {
+            Entry::Occupied(_) => (),
+            Entry::Vacant(val) => {
+                self.accounts_added += 1;
+                val.insert(account);
+            }
         }
     }
 
@@ -147,31 +147,19 @@ pub(super) fn collect_accounts_from_contract(
             }
 
             match &func.mutability {
-                Mutability::Pure(_) => (),
-                Mutability::View(_) => {
-                    func.solana_accounts.borrow_mut().insert(
-                        DATA_ACCOUNT.to_string(),
-                        SolanaAccount {
-                            is_writer: false,
-                            is_signer: false,
-                        },
-                    );
-                }
+                Mutability::Pure(_)
+                | Mutability::View(_) => (),
                 _ => {
-                    func.solana_accounts.borrow_mut().insert(
-                        DATA_ACCOUNT.to_string(),
-                        SolanaAccount {
-                            is_writer: true,
-                            /// With a @payer annotation, the account is created on-chain and needs a signer. The client
-                            /// provides an address that does not exist yet, so SystemProgram.CreateAccount is called
-                            /// on-chain.
-                            ///
-                            /// However, if a @seed is also provided, the program can sign for the account
-                            /// with the seed using program derived address (pda) when SystemProgram.CreateAccount is called,
-                            /// so no signer is required from the client.
-                            is_signer: func.has_payer_annotation() && !func.has_seed_annotation(),
-                        },
-                    );
+                    func.solana_accounts.borrow_mut().get_mut(
+                        DATA_ACCOUNT).unwrap().is_signer =
+                            // With a @payer annotation, the account is created on-chain and needs a signer. The client
+                            // provides an address that does not exist yet, so SystemProgram.CreateAccount is called
+                            // on-chain.
+                            //
+                            // However, if a @seed is also provided, the program can sign for the account
+                            // with the seed using program derived address (pda) when SystemProgram.CreateAccount is called,
+                            // so no signer is required from the client.
+                             func.has_payer_annotation() && !func.has_seed_annotation();
                 }
             }
             if func.is_constructor() && func.has_payer_annotation() {
