@@ -144,7 +144,7 @@ pub(super) fn collect_accounts_from_contract(
             )
         {
             let func = &ns.functions[*func_no];
-            if !func.solana_accounts.borrow().is_empty() {
+            if !func.solana_accounts.borrow().is_empty() && func.has_body {
                 need_preamble.push(*func_no);
             }
 
@@ -165,14 +165,14 @@ pub(super) fn collect_accounts_from_contract(
                 }
             }
             if func.is_constructor() && func.has_payer_annotation() {
-                func.solana_accounts.borrow_mut().insert(
-                    WALLET_ACCOUNT.to_string(),
-                    SolanaAccount {
-                        loc: pt::Loc::Codegen,
-                        is_signer: true,
-                        is_writer: false,
-                    },
-                );
+                // func.solana_accounts.borrow_mut().insert(
+                //     WALLET_ACCOUNT.to_string(),
+                //     SolanaAccount {
+                //         loc: pt::Loc::Codegen,
+                //         is_signer: true,
+                //         is_writer: false,
+                //     },
+                // );
                 func.solana_accounts.borrow_mut().insert(
                     SYSTEM_ACCOUNT.to_string(),
                     SolanaAccount {

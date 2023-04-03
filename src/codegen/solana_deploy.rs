@@ -212,7 +212,7 @@ pub(super) fn solana_deploy(
         }
     }
 
-    if let Some(ConstructorAnnotation::Payer(payer)) = func
+    if let Some(ConstructorAnnotation::Payer(_, account_name)) = func
         .annotations
         .iter()
         .find(|tag| matches!(tag, ConstructorAnnotation::Payer(..)))
@@ -223,8 +223,35 @@ pub(super) fn solana_deploy(
         );
 
         let metas = vartab.temp_name("metas", &metas_ty);
+        let account_index = func.solana_accounts.borrow().get_index_of(account_name).unwrap();
 
-        let payer = expression(payer, cfg, contract_no, None, ns, vartab, opt);
+        let accounts = Expression::Builtin(
+            Loc::Codegen,
+            vec![Type::Array(Box::new(Type::Struct(StructType::AccountInfo)), vec![ArrayLength::Dynamic])],
+                Builtin::Accounts,
+            vec![]
+        );
+
+        // TODO: This can be simplified
+        let subscript = Expression::Subscript(
+            Loc::Codegen,
+            Type::Ref(Box::new(Type::Struct(StructType::AccountInfo))),
+            Type::Array(Box::new(Type::Struct(StructType::AccountInfo)), vec![ArrayLength::Dynamic]),
+            Box::new(accounts.clone()),
+            Box::new(
+                Expression::NumberLiteral(Loc::Codegen,
+                                          Type::Uint(32),
+                                          BigInt::from(account_index)
+                )
+            ),
+        );
+
+        let payer_key = Expression::StructMember(
+            Loc::Codegen,
+            Type::Ref(Box::new(Type::Bool)),
+            Box::new(subscript.clone()),
+            0
+        );
 
         cfg.add(
             vartab,
@@ -243,7 +270,7 @@ pub(super) fn solana_deploy(
                                 Expression::GetRef(
                                     Loc::Codegen,
                                     Type::Address(false),
-                                    Box::new(payer),
+                                    Box::new(payer_key),
                                 ),
                                 Expression::BoolLiteral(Loc::Codegen, true),
                                 Expression::BoolLiteral(Loc::Codegen, true),

@@ -322,7 +322,7 @@ pub struct SolanaAccount {
 
 pub enum ConstructorAnnotation {
     Seed(Expression),
-    Payer(Expression),
+    Payer(pt::Loc, String),
     Space(Expression),
     Bump(Expression),
 }
@@ -330,10 +330,10 @@ pub enum ConstructorAnnotation {
 impl CodeLocation for ConstructorAnnotation {
     fn loc(&self) -> pt::Loc {
         match self {
-            ConstructorAnnotation::Seed(expr) => expr.loc(),
-            ConstructorAnnotation::Payer(expr) => expr.loc(),
-            ConstructorAnnotation::Space(expr) => expr.loc(),
-            ConstructorAnnotation::Bump(expr) => expr.loc(),
+            ConstructorAnnotation::Seed(expr)
+            | ConstructorAnnotation::Space(expr)
+            | ConstructorAnnotation::Bump(expr) => expr.loc(),
+            ConstructorAnnotation::Payer(loc, _) => *loc,
         }
     }
 }

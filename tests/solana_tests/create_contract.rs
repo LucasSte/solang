@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    account_new, build_solidity, create_program_address, Account, AccountState, BorshToken,
-};
+use crate::{account_new, build_solidity, create_program_address, Account, AccountState, BorshToken, AccountMeta, Pubkey};
 use base58::{FromBase58, ToBase58};
 
 #[test]
@@ -166,7 +164,8 @@ fn create_contract_wrong_program_id() {
     let program = &vm.programs[0].program;
     vm.account_data.get_mut(program).unwrap().data = code;
 
-    vm.constructor_expected(7 << 32, &[]);
+    let default_metas = vm.default_metas();
+    vm.constructor_expected(7 << 32, &default_metas, &[]);
 
     assert_eq!(
         vm.logs,
@@ -307,7 +306,8 @@ fn account_too_small() {
 
     vm.account_data.get_mut(&data).unwrap().data.truncate(100);
 
-    vm.constructor_expected(5 << 32, &[]);
+    let default_metas = vm.default_metas();
+    vm.constructor_expected(5 << 32, &default_metas, &[]);
 }
 
 #[test]
@@ -357,7 +357,7 @@ fn account_with_seed() {
             @space(511 + 102)
             @seed(seed)
             @payer(payer)
-            constructor(bytes seed, address payer) {}
+            constructor(bytes seed) {}
 
             function hello() public returns (bool) {
                 return true;
@@ -373,8 +373,41 @@ fn account_with_seed() {
     vm.stack[0].data = seed.0;
 
     let payer = account_new();
+    vm.account_data.insert(
+        payer,
+        AccountState {
+            data: vec![],
+            owner: None,
+            lamports: 0,
+        }
+    );
+    vm.account_data.insert(
+        [0; 32],
+        AccountState {
+            data: vec![],
+            owner: None,
+            lamports: 0,
+        }
+    );
+    let metas = vec![
+        AccountMeta {
+            pubkey: Pubkey(vm.stack[0].data),
+            is_writable: true,
+            is_signer: false,
+        },
+        AccountMeta {
+            pubkey: Pubkey(payer.clone()),
+            is_writable: false,
+            is_signer: true,
+        },
+        AccountMeta {
+            pubkey: Pubkey([0; 32]),
+            is_writable: false,
+            is_signer: false,
+        }
+    ];
 
-    vm.constructor(&[BorshToken::Bytes(seed.1), BorshToken::Address(payer)]);
+    vm.constructor_metas(&metas, &[BorshToken::Bytes(seed.1)]);
 
     assert_eq!(
         vm.account_data.get_mut(&seed.0).unwrap().data.len(),
@@ -396,7 +429,7 @@ fn account_with_seed_bump() {
             @seed(seed)
             @bump(b)
             @payer(payer)
-            constructor(bytes seed, address payer, byte b) {}
+            constructor(bytes seed, byte b) {}
 
             function hello() public returns (bool) {
                 return true;
@@ -414,10 +447,42 @@ fn account_with_seed_bump() {
     vm.stack[0].data = seed.0;
 
     let payer = account_new();
+    let metas = vec![
+        AccountMeta {
+            pubkey: Pubkey(vm.stack[0].data),
+            is_writable: true,
+            is_signer: false,
+        },
+        AccountMeta {
+            pubkey: Pubkey(payer),
+            is_signer: true,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: Pubkey([0;32]),
+            is_writable: false,
+            is_signer: false,
+        }
+    ];
+    vm.account_data.insert(
+        payer,
+        AccountState {
+            data: vec![],
+            owner: None,
+            lamports: 0,
+        }
+    );
+    vm.account_data.insert(
+        [0; 32],
+        AccountState {
+            data: vec![],
+            owner: None,
+            lamports: 0,
+        }
+    );
 
-    vm.constructor(&[
+    vm.constructor_metas(&metas, &[
         BorshToken::Bytes(seed.1),
-        BorshToken::Address(payer),
         BorshToken::Uint {
             width: 8,
             value: bump.into(),

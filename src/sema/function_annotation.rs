@@ -305,32 +305,74 @@ pub fn function_body_annotations(
                 }
             }
             "payer" if is_solana_constructor => {
-                let ty = Type::Address(false);
+                // let ty = Type::Address(false);
                 let loc = note.loc;
 
-                if let Ok(expr) = expression(
-                    &note.value,
-                    context,
-                    ns,
-                    symtable,
-                    &mut diagnostics,
-                    ResolveTo::Type(&ty),
-                ) {
-                    if let Ok(expr) = expr.cast(&expr.loc(), &ty, true, ns, &mut diagnostics) {
-                        if let Some(prev) = &payer {
-                            diagnostics.push(Diagnostic::error_with_note(
-                                loc,
-                                "duplicate @payer annotation for constructor".into(),
-                                *prev,
-                                "previous @payer".into(),
-                            ));
-                        } else {
-                            payer = Some(loc);
-                            used_variable(ns, &expr, symtable);
-                            resolved_annotations.push(ConstructorAnnotation::Payer(expr));
+                if let pt::Expression::Variable(id) = &note.value {
+                    if let Some(prev) = &payer {
+                        diagnostics.push(Diagnostic::error_with_note(
+                            loc,
+                            "duplicate @payer annotation for constructor".into(),
+                            *prev,
+                            "previous @payer".into(),
+                        ));
+                    } else {
+                        match ns.functions[function_no].solana_accounts.borrow_mut().entry(id.name.clone()) {
+                            Entry::Occupied(data) => {
+                                diagnostics.push(Diagnostic::error_with_note(
+                                    id.loc,
+                                    format!("account '{}' already defined", id.name),
+                                    data.get().loc,
+                                    format!("previous definition here"),
+                                ));
+                            }
+                            Entry::Vacant(vacancy) => {
+                                payer = Some(loc);
+                                resolved_annotations.push(ConstructorAnnotation::Payer(loc, note.id.name.clone()));
+                                vacancy.insert(
+                                SolanaAccount {
+                                    loc: note.loc,
+                                    is_signer: true,
+                                    is_writer: false,
+                                });
+                            }
                         }
                     }
+                } else if matches!(note.value, pt::Expression::AddressLiteral(..)) {
+                    if let Ok(expr) = expr.cast(&expr.loc(), &ty, true, ns, &mut diagnostics) {
+
+                    }
                 }
+                else {
+                    diagnostics.push(Diagnostic::error(
+                        note.value.loc(),
+                        "invalid parameter for annotation".to_string()
+                    ));
+                }
+
+                // if let Ok(expr) = expression(
+                //     &note.value,
+                //     context,
+                //     ns,
+                //     symtable,
+                //     &mut diagnostics,
+                //     ResolveTo::Type(&ty),
+                // ) {
+                //     if let Ok(expr) = expr.cast(&expr.loc(), &ty, true, ns, &mut diagnostics) {
+                //         if let Some(prev) = &payer {
+                //             diagnostics.push(Diagnostic::error_with_note(
+                //                 loc,
+                //                 "duplicate @payer annotation for constructor".into(),
+                //                 *prev,
+                //                 "previous @payer".into(),
+                //             ));
+                //         } else {
+                //             payer = Some(loc);
+                //             used_variable(ns, &expr, symtable);
+                //             resolved_annotations.push(ConstructorAnnotation::Payer(expr));
+                //         }
+                //     }
+                // }
             }
             _ => diagnostics.push(Diagnostic::error(
                 note.loc,

@@ -226,12 +226,18 @@ impl Dot {
                     ConstructorAnnotation::Bump(expr) => {
                         self.add_expression(expr, Some(func), ns, node, "bump".into());
                     }
-                    ConstructorAnnotation::Payer(expr) => {
-                        self.add_expression(expr, Some(func), ns, node, "payer".into());
+                    ConstructorAnnotation::Payer(_, name) => {
+                        self.add_node(
+                            Node::new(format!("payer account: {}", name).as_str(), vec![]),
+                            Some(node),
+                            Some(String::from("payer annotation"))
+                        );
                     }
                 };
             }
         }
+
+        // TODO: Add solana accounts to graphviz!
 
         // bases
         for (base_no, (_, _, args)) in &func.bases {

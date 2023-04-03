@@ -879,16 +879,18 @@ impl<'a> Builder<'a> {
                 continue;
             }
 
+            // TODO: Add account declaration to language server
             for note in &func.annotations {
                 match note {
                     ast::ConstructorAnnotation::Bump(expr)
                     | ast::ConstructorAnnotation::Seed(expr)
-                    | ast::ConstructorAnnotation::Payer(expr)
                     | ast::ConstructorAnnotation::Space(expr) => {
                         builder.expression(expr, &func.symtable)
                     }
+                    _ => {},
                 }
             }
+
 
             for param in &*func.params {
                 let val = builder.expanded_ty(&param.ty);
