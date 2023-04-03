@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use indexmap::map::Entry;
 use super::{
     ast::{ConstructorAnnotation, Diagnostic, Expression, Function, Namespace, Type},
     diagnostics::Diagnostics,
@@ -34,13 +35,32 @@ pub fn function_prototype_annotations(
             | "mutable"
             | "mutableSigner" => {
                 if let pt::Expression::Variable(id) = &annotation.value {
-                    func.solana_accounts.borrow_mut().insert(
-                        id.name.clone(),
-                        SolanaAccount {
-                            is_signer: annotation.id.name == "signer" || annotation.id.name == "mutableSigner",
-                            is_writer: annotation.id.name == "mutable" || annotation.id.name == "mutableSigner"
+                    match func.solana_accounts.borrow_mut().entry(id.name.clone()) {
+                        Entry::Occupied(data) => {
+                            if id.name == "dataAccount" {
+                                diagnostics.push(Diagnostic::error(
+                                    id.loc,
+                                    "'dataAccount' is a reserved account name for the contract's data account".to_string()
+                                ));
+                            } else {
+                                diagnostics.push(Diagnostic::error_with_note(
+                                    id.loc,
+                                    format!("account '{}' already defined", id.name),
+                                    data.get().loc,
+                                    format!("previous definition here"),
+                                ));
+                            }
                         }
-                    );
+                        Entry::Vacant(vacancy) => {
+                            vacancy.insert(
+                                SolanaAccount {
+                                    loc: id.loc,
+                                    is_signer: annotation.id.name == "signer" || annotation.id.name == "mutableSigner",
+                                    is_writer: annotation.id.name == "mutable" || annotation.id.name == "mutableSigner"
+                                }
+                            );
+                        }
+                    }
                 } else {
                     diagnostics.push(Diagnostic::error(
                         annotation.value.loc(),

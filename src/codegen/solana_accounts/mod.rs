@@ -14,6 +14,7 @@ use once_cell::sync::Lazy;
 use solang_parser::pt::FunctionTy;
 use std::collections::{HashMap, HashSet, VecDeque};
 use indexmap::map::Entry;
+use solang_parser::pt;
 use crate::codegen::solana_accounts::function_preamble::create_preamble;
 
 /// These are the accounts that we can collect from a contract and that Anchor will populate
@@ -116,6 +117,7 @@ impl RecurseData<'_> {
         self.add_account(
             SYSTEM_ACCOUNT.to_string(),
             SolanaAccount {
+                loc: pt::Loc::Codegen,
                 is_writer: false,
                 is_signer: false,
             },
@@ -166,6 +168,7 @@ pub(super) fn collect_accounts_from_contract(
                 func.solana_accounts.borrow_mut().insert(
                     WALLET_ACCOUNT.to_string(),
                     SolanaAccount {
+                        loc: pt::Loc::Codegen,
                         is_signer: true,
                         is_writer: false,
                     },
@@ -173,6 +176,7 @@ pub(super) fn collect_accounts_from_contract(
                 func.solana_accounts.borrow_mut().insert(
                     SYSTEM_ACCOUNT.to_string(),
                     SolanaAccount {
+                        loc: pt::Loc::Codegen,
                         is_signer: false,
                         is_writer: false,
                     },
@@ -443,6 +447,7 @@ fn check_instruction(instr: &Instr, data: &mut RecurseData) {
                         data.add_account(
                             account.to_string(),
                             SolanaAccount {
+                                loc: pt::Loc::Codegen,
                                 is_signer: false,
                                 is_writer: false,
                             },
@@ -506,6 +511,7 @@ fn check_expression(expr: &Expression, data: &mut RecurseData) -> bool {
             data.add_account(
                 CLOCK_ACCOUNT.to_string(),
                 SolanaAccount {
+                    loc: pt::Loc::Codegen,
                     is_signer: false,
                     is_writer: false,
                 },
@@ -515,6 +521,7 @@ fn check_expression(expr: &Expression, data: &mut RecurseData) -> bool {
             data.add_account(
                 INSTRUCTION_ACCOUNT.to_string(),
                 SolanaAccount {
+                    loc: pt::Loc::Codegen,
                     is_writer: false,
                     is_signer: false,
                 },

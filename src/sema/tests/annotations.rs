@@ -91,6 +91,11 @@ fn all_accounts_ok() {
         return false;
     }
 
+    @reader(dataAccount)
+    function test_pure_function(uint a, uint b) public pure returns (uint) {
+        return a+b;
+    }
+
 }
     "#;
     let ns = parse(src, Target::Solana);
@@ -99,4 +104,9 @@ fn all_accounts_ok() {
 }
 
 // TODO:
-// 3. Write integrations tests that verify if the accounts are properly deserialized
+// 1. dataAccount is a reserved name
+// 2. Do not allow duplicate accounts
+// 3. Remove @payer annotation
+// 4. Write integrations tests that verify if the accounts are properly deserialized
+// 5. Write the docs about how to use this new feature
+// 6. Modify the docs about the @payer annotation

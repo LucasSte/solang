@@ -315,6 +315,7 @@ pub struct Function {
 /// it is stored in a IndexMap<String, SolanaAccount> (see above)
 #[derive(Clone, Copy, Debug)]
 pub struct SolanaAccount {
+    pub loc: pt::Loc,
     pub is_signer: bool,
     pub is_writer: bool,
 }
@@ -386,6 +387,7 @@ impl Function {
                     accounts.insert(
                         "dataAccount".to_string(),
                         SolanaAccount {
+                            loc: pt::Loc::Implicit,
                             // The signer flag is going to be updated in codegen/solana_accounts/mod.rs
                             is_signer: false,
                             is_writer: true,
@@ -399,6 +401,7 @@ impl Function {
                     accounts.insert(
                         "dataAccount".to_string(),
                         SolanaAccount {
+                            loc: pt::Loc::Implicit,
                             // The signer flag is going to be updated in codegen/solana_accounts/mod.rs
                             is_signer: false,
                             is_writer: true,
@@ -414,6 +417,7 @@ impl Function {
                     accounts.insert(
                         "dataAccount".to_string(),
                         SolanaAccount {
+                            loc: pt::Loc::Implicit,
                             is_writer: false,
                             is_signer: false,
                         }
