@@ -169,7 +169,6 @@ fn duplicate_account_declaration() {
 }
 
 // TODO:
-// 3. Remove @payer annotation
 // 4. Write integrations tests that verify if the accounts are properly deserialized
 // 5. Write the docs about how to use this new feature
 // 6. Modify the docs about the @payer annotation
